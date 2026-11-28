@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --hg-bg: #090e1a;
+  --hg-surface: #0f172a;
+  --hg-surface-elevated: #162033;
+  --hg-border: #25324a;
+  --hg-text-primary: #f8fafc;
+  --hg-text-secondary: #cbd5e1;
+  --hg-text-muted: #94a3b8;
+  --hg-accent-light: #0284c7;
+  --hg-accent-dark: #38bdf8;
+  --hg-accent: var(--hg-accent-dark);
+  --hg-scrollbar-track: #0f172a;
+  --hg-scrollbar-thumb: #475569;
+
+  color-scheme: dark;
+  accent-color: var(--hg-accent);
+  scrollbar-color: var(--hg-scrollbar-thumb) var(--hg-scrollbar-track);
+  scroll-padding-top: 4.5rem;
+}
+
+@supports (color: light-dark(white, black)) {
+  :root {
+    --hg-accent: light-dark(var(--hg-accent-light), var(--hg-accent-dark));
+  }
+}
+
+@supports not (scrollbar-color: auto) {
+  .hg-scroller {
+    scrollbar-width: auto;
+  }
+  .hg-scroller::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .hg-scroller::-webkit-scrollbar-thumb {
+    background: var(--hg-scrollbar-thumb);
+  }
+  .hg-scroller::-webkit-scrollbar-track {
+    background: var(--hg-scrollbar-track);
+  }
+}
+
+body {
+  background-color: var(--hg-bg);
+  color: var(--hg-text-primary);
+}
+
+/* Responsive accessible data tables (modern-web-guidance: responsive-table) */
+.hg-table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(72vh, 760px);
+  container-type: inline-size;
+  scroll-padding-top: 3rem;
+}
+
+.hg-data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.hg-data-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  background-color: var(--hg-surface-elevated);
+}
+
+.hg-data-table tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background-color: var(--hg-surface);
+  text-align: left;
+}
+
+@container (width < 640px) {
+  .hg-data-table,
+  .hg-data-table thead,
+  .hg-data-table tbody,
+  .hg-data-table tr,
+  .hg-data-table th,
+  .hg-data-table td {
+    display: block;
+  }
+
+  .hg-data-table thead {
+    display: none;
+  }
+
+  .hg-data-table tr {
+    margin-block-end: 0.75rem;
+    border: 1px solid var(--hg-border);
+    border-radius: 0.375rem;
+    background-color: var(--hg-surface);
+  }
+
+  .hg-data-table tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: var(--hg-surface-elevated);
+    border-bottom: 1px solid var(--hg-border);
+  }
+
+  .hg-data-table td::before {
+    content: attr(data-label) ": ";
+    font-weight: 600;
+    color: var(--hg-text-muted);
+    margin-inline-end: 0.5rem;
+  }
+}
+
+/* Accessible tabs (modern-web-guidance: tabs) */
+.hg-tablist {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--hg-border);
+  scroll-snap-type: inline proximity;
+}
+
+.hg-tab {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--hg-text-muted);
+  white-space: nowrap;
+}
+
+.hg-tab:hover {
+  color: var(--hg-text-primary);
+}
+
+.hg-tab[aria-selected="true"] {
+  color: var(--hg-accent);
+}
+
+.hg-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  border-block-end: 3px solid var(--hg-accent);
+}
+
+/* Native <details>/<summary> disclosure (modern-web-guidance: accordion) */
+.hg-disclosure > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.hg-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hg-disclosure > summary::before {
+  content: "▸";
+  display: inline-block;
+  font-size: 0.85em;
+  color: var(--hg-accent);
+  flex-shrink: 0;
+}
+
+.hg-disclosure[open] > summary::before {
+  content: "▾";
+}
+
+.hg-disclosure::details-content {
+  overflow: clip;
+  contain: layout;
+}
+
+/* Synchronized visual :user-invalid styling (modern-web-guidance: accessible-error-announcement) */
+.hg-field-control:is(:user-invalid, [aria-invalid="true"]) {
+  border-color: #ef4444;
+}
+
+/* Copy confirmation live region revealed via opacity so AT always announces (modern-web-guidance: copy-button) */
+.hg-copy-btn {
+  min-inline-size: 28px;
+  min-block-size: 28px;
+}
+
+.hg-copy-tip {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.hg-copy-btn[data-copied] + .hg-copy-tip,
+.hg-copy-btn[data-failed] + .hg-copy-tip {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hg-copy-tip {
+    transition: opacity 0.01ms linear;
+  }
+}

@@ -1,0 +1,12 @@
+# Lynis Report (Hardened Snapshot 2)
+lynis_version=3.1.4
+lynis_tests_done=251
+hardening_index=78
+os=Linux
+os_name=Debian GNU/Linux
+os_version=8
+hostname=srv-legacy-01
+warning[]=FIRE-4512|iptables has no active ruleset|iptables|Configure host firewall rules
+suggestion[]=AUTH-9286|Configure minimum password age in /etc/login.defs|/etc/login.defs|Set PASS_MIN_DAYS 1
+suggestion[]=FINT-4350|Install a file integrity tool|/etc/aide|Deploy AIDE offline
+test_skipped[]=SYSD-9002|Not supported on SysVinit

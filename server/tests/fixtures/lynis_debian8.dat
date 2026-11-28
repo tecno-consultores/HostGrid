@@ -1,0 +1,16 @@
+# Lynis Report
+lynis_version=3.1.4
+lynis_tests_done=248
+hardening_index=64
+os=Linux
+os_name=Debian GNU/Linux
+os_version=8
+hostname=srv-legacy-01
+warning[]=SSH-7408|PermitRootLogin is enabled in SSH configuration|/etc/ssh/sshd_config|Set PermitRootLogin no
+warning[]=FIRE-4512|iptables has no active ruleset|iptables|Configure host firewall rules
+suggestion[]=AUTH-9286|Configure minimum password age in /etc/login.defs|/etc/login.defs|Set PASS_MIN_DAYS 1
+suggestion[]=KRNL-6000|One or more sysctl values differ from the scan profile|kernel.kptr_restrict|Harden sysctl values
+suggestion[]=PKGS-7392|Update your system with apt-get update|apt|Apply security updates via local mirror
+suggestion[]=BANN-7126|Add a legal banner to /etc/issue|/etc/issue|-
+test_skipped[]=SYSD-9002|Not supported on SysVinit
+test_skipped[]=MACF-6234|No SELinux or AppArmor present

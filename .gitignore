@@ -1,0 +1,54 @@
+# Python / Control Plane
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.egg-info/
+build/
+
+# Go / Agent
+agent/bin/
+dist/
+*.test
+*.out
+
+# Node / Web Frontend
+web/node_modules/
+web/dist/
+web/.vite/
+*.tsbuildinfo
+
+# Secretos, claves criptográficas y entorno
+*.key
+*.pem
+*.p12
+*.crt
+.env
+.env.local
+.env.*.local
+deploy/.env
+tools-packaging/keys/
+
+# Bases de datos locales y artefactos/bundles generados
+*.sqlite
+*.sqlite3
+*.db
+*.bundle
+tools-packaging/out/
+
+# Sistema operativo e IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

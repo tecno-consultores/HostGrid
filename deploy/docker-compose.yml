@@ -1,0 +1,175 @@
+# Configuración de despliegue de referencia para HostGrid Control Plane.
+# Copiar deploy/.env.example a deploy/.env y completar los secretos antes de levantar.
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hostgrid}
+      POSTGRES_USER: ${POSTGRES_USER:-hostgrid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en deploy/.env}
+    volumes:
+      - hostgrid_pgdata:/var/lib/postgresql/data
+    tmpfs:
+      - /tmp:size=64M,noexec,nosuid,nodev
+      - /run/postgresql:size=32M,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    networks:
+      - hostgrid_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hostgrid} -d ${POSTGRES_DB:-hostgrid}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  server:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      HOSTGRID_ENV: ${HOSTGRID_ENV:-production}
+      HOSTGRID_JWT_SECRET: ${HOSTGRID_JWT_SECRET:?Definir HOSTGRID_JWT_SECRET en deploy/.env}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hostgrid}:${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en deploy/.env}@db:5432/${POSTGRES_DB:-hostgrid}
+      HOSTGRID_CORS_ORIGINS: ${HOSTGRID_CORS_ORIGINS:-http://127.0.0.1:8080}
+      HOSTGRID_MAX_BUNDLE_SIZE_MB: ${HOSTGRID_MAX_BUNDLE_SIZE_MB:-25}
+      HOSTGRID_BUNDLE_SIGNING_PUBKEY_B64: ${HOSTGRID_BUNDLE_SIGNING_PUBKEY_B64:-}
+      HOSTGRID_BUNDLE_SIGNING_PRIVKEY_B64: ${HOSTGRID_BUNDLE_SIGNING_PRIVKEY_B64:-}
+      HOSTGRID_BOOTSTRAP_ADMIN_USERNAME: ${HOSTGRID_BOOTSTRAP_ADMIN_USERNAME:-}
+      HOSTGRID_BOOTSTRAP_ADMIN_EMAIL: ${HOSTGRID_BOOTSTRAP_ADMIN_EMAIL:-}
+      HOSTGRID_BOOTSTRAP_ADMIN_PASSWORD: ${HOSTGRID_BOOTSTRAP_ADMIN_PASSWORD:-}
+      HOSTGRID_SERVER_PORT: ${HOSTGRID_SERVER_PORT:-8000}
+      HOSTGRID_TLS_CERTFILE: ${HOSTGRID_TLS_CERTFILE:-}
+      HOSTGRID_TLS_KEYFILE: ${HOSTGRID_TLS_KEYFILE:-}
+      HOSTGRID_TLS_CA_CERTS: ${HOSTGRID_TLS_CA_CERTS:-}
+      HOSTGRID_HEALTH_URL: ${HOSTGRID_HEALTH_URL:-}
+      HOSTGRID_HEALTH_CA: ${HOSTGRID_HEALTH_CA:-}
+      HOSTGRID_HEALTH_CLIENT_CERT: ${HOSTGRID_HEALTH_CLIENT_CERT:-}
+      HOSTGRID_HEALTH_CLIENT_KEY: ${HOSTGRID_HEALTH_CLIENT_KEY:-}
+    volumes:
+      - hostgrid_bundles:/var/lib/hostgrid/bundles
+      - hostgrid_cve_cache:/var/lib/hostgrid/cve-cache
+      # Opcional para TLS/mTLS nativo en Control Plane (descomentar al configurar HOSTGRID_TLS_CERTFILE/KEYFILE):
+      # - ./certs/server:/etc/hostgrid/certs:ro
+    ports:
+      - "127.0.0.1:${HOSTGRID_API_PORT:-8000}:${HOSTGRID_SERVER_PORT:-8000}"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - hostgrid_internal
+      - hostgrid_edge
+    healthcheck:
+      test: ["CMD", "python3", "-m", "app.healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=32M,noexec,nosuid,nodev
+      - /var/cache/nginx:size=32M,noexec,nosuid,nodev
+      - /var/run:size=16M,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      HOSTGRID_WEB_UPSTREAM_URL: ${HOSTGRID_WEB_UPSTREAM_URL:-http://server:8000}
+      HOSTGRID_WEB_UPSTREAM_CA: ${HOSTGRID_WEB_UPSTREAM_CA:-}
+      HOSTGRID_WEB_UPSTREAM_CLIENT_CERT: ${HOSTGRID_WEB_UPSTREAM_CLIENT_CERT:-}
+      HOSTGRID_WEB_UPSTREAM_CLIENT_KEY: ${HOSTGRID_WEB_UPSTREAM_CLIENT_KEY:-}
+    # Opcional al habilitar TLS/mTLS nativo en `server` (descomentar junto a HOSTGRID_WEB_UPSTREAM_URL=https://server:8443):
+    # volumes:
+    #   - ./certs/web:/etc/hostgrid/certs:ro
+    ports:
+      - "127.0.0.1:${HOSTGRID_WEB_PORT:-8080}:8080"
+    depends_on:
+      server:
+        condition: service_healthy
+    networks:
+      - hostgrid_edge
+
+  relay:
+    profiles:
+      - relay
+    build:
+      context: ../relay
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=32M,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      HOSTGRID_RELAY_LISTEN: ":8443"
+      # Por defecto apunta a TLS nativo en `server` (requiere activar HOSTGRID_TLS_CERTFILE/KEYFILE y HOSTGRID_SERVER_PORT=8443)
+      # o bien sobreescribir hacia un proxy TLS externo (ej. https://controlplane.internal:8443).
+      HOSTGRID_RELAY_UPSTREAM: ${HOSTGRID_RELAY_UPSTREAM:-https://server:8443}
+      HOSTGRID_RELAY_CACHE_DIR: "/var/cache/hostgrid-relay"
+      HOSTGRID_RELAY_TLS_CERT: ${HOSTGRID_RELAY_TLS_CERT:-}
+      HOSTGRID_RELAY_TLS_KEY: ${HOSTGRID_RELAY_TLS_KEY:-}
+      HOSTGRID_RELAY_CLIENT_CA: ${HOSTGRID_RELAY_CLIENT_CA:-}
+      HOSTGRID_RELAY_UPSTREAM_CA: ${HOSTGRID_RELAY_UPSTREAM_CA:-}
+      HOSTGRID_RELAY_UPSTREAM_CLIENT_CERT: ${HOSTGRID_RELAY_UPSTREAM_CLIENT_CERT:-}
+      HOSTGRID_RELAY_UPSTREAM_CLIENT_KEY: ${HOSTGRID_RELAY_UPSTREAM_CLIENT_KEY:-}
+      HOSTGRID_RELAY_HEALTH_URL: ${HOSTGRID_RELAY_HEALTH_URL:-}
+      HOSTGRID_RELAY_HEALTH_CA: ${HOSTGRID_RELAY_HEALTH_CA:-}
+      HOSTGRID_RELAY_HEALTH_CLIENT_CERT: ${HOSTGRID_RELAY_HEALTH_CLIENT_CERT:-}
+      HOSTGRID_RELAY_HEALTH_CLIENT_KEY: ${HOSTGRID_RELAY_HEALTH_CLIENT_KEY:-}
+    volumes:
+      - hostgrid_relay_cache:/var/cache/hostgrid-relay
+      # Opcional para certificados TLS 1.3 / mTLS entrantes y salientes del Relay (descomentar al habilitar TLS/mTLS):
+      # - ./certs/relay:/etc/hostgrid/certs:ro
+    ports:
+      - "127.0.0.1:${HOSTGRID_RELAY_PORT:-8443}:8443"
+    depends_on:
+      server:
+        condition: service_healthy
+    networks:
+      - hostgrid_edge
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/hostgrid-relay", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  hostgrid_internal:
+    internal: true
+  hostgrid_edge:
+    driver: bridge
+
+volumes:
+  hostgrid_pgdata:
+  hostgrid_bundles:
+  hostgrid_cve_cache:
+  hostgrid_relay_cache:
